@@ -111,7 +111,6 @@ class Tracker:
             else:
                 self.del_tracks_ids.append(t.track_id)
         self.tracks = new_tracks
-        # self.tracks = [t for t in self.tracks if not t.is_deleted()]
 
         # Update distance metric.
         active_targets = [t.track_id for t in self.tracks if t.is_confirmed()]
@@ -119,8 +118,12 @@ class Tracker:
         for track in self.tracks:
             if not track.is_confirmed():
                 continue
-            features += track.features
-            targets += [track.track_id for _ in track.features]
+            if track.time_since_update > 2:
+                continue
+            avg_feature = track.get_weighted_avg_feature()
+            if avg_feature is not None:
+                features.append(avg_feature)
+                targets.append(track.track_id)
             track.features = []
         self.metric.partial_fit(
             np.asarray(features), np.asarray(targets), active_targets
@@ -195,7 +198,6 @@ class Tracker:
                 track_id,
                 self.n_init,
                 self.max_age,
-                # mean, covariance, self._next_id, self.n_init, self.max_age,
                 feature=detection.feature,
                 original_ltwh=detection.get_ltwh(),
                 det_class=detection.class_name,

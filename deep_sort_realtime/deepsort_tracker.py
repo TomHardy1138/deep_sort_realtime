@@ -15,6 +15,7 @@ logger = logging.getLogger(__name__)
 EMBEDDER_CHOICES = [
     "mobilenet",
     "torchreid",
+    "torchreid_v2",
     "clip_RN50",
     "clip_RN101",
     "clip_RN50x4",
@@ -119,6 +120,14 @@ class DeepSort(object):
                     bgr=bgr, 
                     gpu=embedder_gpu,
                     model_name=embedder_model_name,
+                    model_wts_path=embedder_wts,
+                )
+            elif embedder == "torchreid_v2":
+                from deep_sort_realtime.embedder.embedder_pytorch import Karen_Embedder as Embedder
+
+                self.embedder = Embedder(
+                    bgr=bgr, 
+                    gpu=embedder_gpu,
                     model_wts_path=embedder_wts,
                 )
 

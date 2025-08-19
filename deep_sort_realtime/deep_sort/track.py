@@ -1,4 +1,7 @@
 # vim: expandtab:ts=4:sw=4
+
+import numpy as np
+
 class TrackState:
     """
     Enumeration type for the single target track state. Newly created tracks are
@@ -108,6 +111,8 @@ class Track:
         self.det_conf = det_conf
         self.instance_mask = instance_mask
         self.others = others
+        
+        self.ltrb_history = []
 
     def to_tlwh(self, orig=False, orig_strict=False):
         """Get current position in bounding box format `(top left x, top left y,
@@ -213,6 +218,28 @@ class Track:
         Get latest appearance feature
         '''
         return self.latest_feature
+    
+    def get_avg_feature(self):
+        """
+        Get the average feature vector for this track.
+        Returns None if there are no features.
+        """
+        if len(self.features) > 0:
+            return np.mean(self.features, axis=0).tolist()
+        else:
+            return None
+        
+    def get_weighted_avg_feature(self, alpha=0.7):
+        """
+        Возвращает экспоненциально взвешенное среднее эмбеддингов.
+        alpha — вес нового признака (0.7 — новый важнее).
+        """
+        if not self.features:
+            return None
+        avg = np.array(self.features[0])
+        for f in self.features[1:]:
+            avg = alpha * np.array(f) + (1 - alpha) * avg
+        return avg
 
     def predict(self, kf):
         """Propagate the state distribution to the current time step using a
@@ -256,10 +283,21 @@ class Track:
         self.others = detection.others
 
         self.hits += 1
+        
+        self.ltrb_history.append(detection.to_tlbr())
 
         self.time_since_update = 0
         if self.state == TrackState.Tentative and self.hits >= self._n_init:
             self.state = TrackState.Confirmed
+
+    def get_smoothed_ltrb(self, window=5):
+        """
+        Возвращает сглаженные координаты bbox по последним window кадрам.
+        """
+        if len(self.ltrb_history) < window:
+            return self.ltrb_history[-1]
+        arr = np.array(self.ltrb_history[-window:])
+        return np.mean(arr, axis=0)
 
     def mark_missed(self):
         """Mark this track as missed (no association at the current time step)."""
